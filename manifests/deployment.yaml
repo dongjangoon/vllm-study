@@ -4,6 +4,8 @@ metadata:
   name: vllm-qwen
   namespace: vllm
 spec:
+  strategy:
+    type: Recreate
   replicas: 1
   selector:
     matchLabels:
@@ -18,11 +20,12 @@ spec:
         image: vllm/vllm-openai:latest
         args:
         - "--model"
-        - "Qwen/Qwen2.5-7B-Instruct"
+        - "Qwen/Qwen2.5-3B-Instruct"
         - "--gpu-memory-utilization"
         - "0.90"
         - "--max-model-len"
         - "4096"
+        - "--enforce-eager"  # torch.compile 최적화 skip 
         resources:
           limits:
             nvidia.com/gpu: 1

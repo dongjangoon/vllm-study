@@ -13,7 +13,7 @@ WSL AlmaLinux 9 환경에서 k3s 기반 Kubernetes 클러스터를 구성하고,
 - **NVIDIA Container Toolkit**: 1.18.1+
 - **LLM Serving**: vLLM
 - **CUDA**: 13.1 (Driver 591.59)
-- **GitHub**: https://github.com/donghyun/vllm-study (TODO: 실제 URL로 변경)
+- **GitHub**: https://github.com/dongjangoon/vllm-study
 
 ## Git 브랜치 전략
 
