@@ -1,0 +1,64 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+.env
+*.egg-info/
+dist/
+build/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Logs
+*.log
+logs/
+
+# Secrets & Credentials
+*.pem
+*.key
+*secret*
+*credential*
+kubeconfig
+.kube/
+
+# Model files (too large for git)
+*.bin
+*.safetensors
+*.gguf
+*.pt
+*.pth
+*.onnx
+models/
+
+# Hugging Face cache
+.cache/
+
+# NVIDIA profiling outputs
+*.nsys-rep
+*.ncu-rep
+*.sqlite
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Claude Code plans (local only)
+.claude/

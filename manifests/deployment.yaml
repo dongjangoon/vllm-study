@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vllm-qwen
+  namespace: vllm
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: vllm-qwen
+  template:
+    metadata:
+      labels:
+        app: vllm-qwen
+    spec:
+      containers:
+      - name: vllm
+        image: vllm/vllm-openai:latest
+        args:
+        - "--model"
+        - "Qwen/Qwen2.5-7B-Instruct"
+        - "--gpu-memory-utilization"
+        - "0.90"
+        - "--max-model-len"
+        - "4096"
+        resources:
+          limits:
+            nvidia.com/gpu: 1
+        ports:
+        - containerPort: 8000
+        volumeMounts:
+        - name: model-cache
+          mountPath: /root/.cache/huggingface
+        - name: shm
+          mountPath: /dev/shm
+      volumes:
+      - name: model-cache
+        persistentVolumeClaim:
+          claimName: vllm-model-cache
+      - name: shm
+        emptyDir:
+          medium: Memory
+          sizeLimit: 4Gi
