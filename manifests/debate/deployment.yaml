@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: debate-service
+  namespace: debate
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: debate-service
+  template:
+    metadata:
+      labels:
+        app: debate-service
+    spec:
+      containers:
+      - name: debate
+        image: localhost:5000/debate-service:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8080
+        env:
+        - name: LITELLM_BASE_URL
+          value: "http://litellm-proxy.litellm.svc.cluster.local:4000"
+        - name: LITELLM_API_KEY
+          value: "<YOUR_MASTER_KEY>"
+        - name: LITELLM_MODEL
+          value: "mistral-7b-awq"
+        - name: LANGFUSE_PUBLIC_KEY
+          valueFrom:
+            secretKeyRef:
+              name: debate-langfuse-secret
+              key: LANGFUSE_PUBLIC_KEY
+        - name: LANGFUSE_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: debate-langfuse-secret
+              key: LANGFUSE_SECRET_KEY
+        - name: LANGFUSE_HOST
+          value: "http://langfuse-web.langfuse.svc.cluster.local:3000"
+        resources:
+          requests:
+            cpu: 50m
+            memory: 128Mi
+          limits:
+            cpu: 200m
+            memory: 256Mi
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 3
+          periodSeconds: 5
