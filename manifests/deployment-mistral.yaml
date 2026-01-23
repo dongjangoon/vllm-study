@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vllm-mistral
+  namespace: vllm
+spec:
+  strategy:
+    type: Recreate
+  replicas: 1
+  selector:
+    matchLabels:
+      app: vllm-mistral
+  template:
+    metadata:
+      labels:
+        app: vllm-mistral
+    spec:
+      containers:
+      - name: vllm
+        image: vllm/vllm-openai:latest
+        args:
+        - "--model"
+        - "TheBloke/Mistral-7B-Instruct-v0.2-AWQ"
+        - "--quantization"
+        - "awq"
+        - "--gpu-memory-utilization"
+        - "0.90"
+        - "--max-model-len"
+        - "8192"
+        - "--enforce-eager"
+        resources:
+          limits:
+            nvidia.com/gpu: 1
+        ports:
+        - containerPort: 8000
+        volumeMounts:
+        - name: model-cache
+          mountPath: /root/.cache/huggingface
+        - name: shm
+          mountPath: /dev/shm
+      volumes:
+      - name: model-cache
+        persistentVolumeClaim:
+          claimName: vllm-model-cache
+      - name: shm
+        emptyDir:
+          medium: Memory
+          sizeLimit: 4Gi
