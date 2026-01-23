@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: dcgm-exporter
+  namespace: monitoring
+  labels:
+    app: dcgm-exporter
+spec:
+  ports:
+  - port: 9400
+    name: metrics
+  selector:
+    app: dcgm-exporter
+
