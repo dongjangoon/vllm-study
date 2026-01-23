@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: litellm-config
+  namespace: litellm
+data:
+  config.yaml: |
+    model_list:
+      - model_name: mistral-7b-awq
+        litellm_params:
+          model: openai/TheBloke/Mistral-7B-Instruct-v0.2-AWQ
+          api_base: http://vllm-mistral.vllm.svc.cluster.local:8000/v1
+          api_key: "none"
+          rpm: 60
+          tpm: 100000
+
+    litellm_settings:
+      drop_params: true
+      success_callback: ["langfuse"]
+      failure_callback: ["langfuse"]
+      num_retries: 2
+      request_timeout: 120
+
+    general_settings:
+      master_key: "<YOUR_MASTER_KEY>"
