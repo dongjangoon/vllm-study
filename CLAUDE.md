@@ -493,6 +493,158 @@ vllm:avg_generation_throughput_toks_per_s
 
 ---
 
+## Phase 6: LLM Gateway 및 트레이싱 (Langfuse + LiteLLM + Debate Service)
+
+### 6.1 아키텍처
+
+```
+Client → Debate Service(:30080) → LiteLLM(:30400) → vLLM(:30800)
+              ↓ (langfuse SDK)         ↓ (langfuse callback)
+              └──────────────→ Langfuse(:30030) ←──────────┘
+                                  │
+                         PostgreSQL / ClickHouse / Redis
+```
+
+### 6.2 서비스 구성
+
+| 서비스 | 네임스페이스 | NodePort | 이미지/차트 |
+|--------|-------------|----------|-------------|
+| Langfuse | langfuse | 30030 | Helm chart (langfuse/langfuse) |
+| LiteLLM | litellm | 30400 | ghcr.io/berriai/litellm:main-stable |
+| Debate Service | debate | 30080 | localhost:5000/debate-service:latest |
+
+### 6.3 Langfuse 배포 (Helm)
+
+```bash
+kubectl create namespace langfuse
+helm repo add langfuse https://langfuse.github.io/langfuse-k8s
+helm install langfuse langfuse/langfuse -n langfuse -f manifests/langfuse/values.yaml
+```
+
+**주요 설정 (values.yaml):**
+- ClickHouse: 단일 노드 (ZooKeeper 비활성화)
+- Web: 1Gi 메모리, NODE_OPTIONS=--max-old-space-size=768
+- Probe: liveness 90s / readiness 60s initialDelay
+- 서비스: NodePort 30030
+
+**초기 계정:** Langfuse 초기 설정 시 생성 (기본값은 공식 문서 참조)
+
+### 6.4 LiteLLM Proxy 배포
+
+```bash
+kubectl create namespace litellm
+kubectl apply -f manifests/litellm/
+```
+
+**ConfigMap 핵심 설정:**
+```yaml
+model_list:
+  - model_name: mistral-7b-awq
+    litellm_params:
+      model: openai/TheBloke/Mistral-7B-Instruct-v0.2-AWQ
+      api_base: http://vllm-mistral.vllm.svc.cluster.local:8000/v1
+
+litellm_settings:
+  success_callback: ["langfuse"]
+  failure_callback: ["langfuse"]
+
+general_settings:
+  master_key: "<YOUR_MASTER_KEY>"
+```
+
+**Secret:** Langfuse API 키 (LANGFUSE_PUBLIC_KEY, LANGFUSE_SECRET_KEY, LANGFUSE_HOST)
+
+### 6.5 Multi-Agent Debate Service
+
+두 LLM 에이전트(찬성/반대)가 주제에 대해 N라운드 토론 수행. Langfuse SDK v3로 트레이싱.
+
+**API:**
+```
+POST /debate
+{
+  "topic": "AI가 예술 창작을 대체할 수 있는가",
+  "rounds": 2,
+  "language": "ko"
+}
+```
+
+**Langfuse 트레이스 계층:**
+```
+Trace: "multi-agent-debate"
+├── Span: "round-1-pro"
+│   └── Generation: LLM 호출 (찬성)
+├── Span: "round-1-con"
+│   └── Generation: LLM 호출 (반대)
+└── ...
+```
+
+**기술 스택:** FastAPI + openai SDK + langfuse SDK 3.0.1
+
+**빌드 및 배포:**
+```bash
+docker build -t debate-service:latest services/debate/
+docker tag debate-service:latest localhost:5000/debate-service:latest
+docker push localhost:5000/debate-service:latest
+kubectl create namespace debate
+kubectl apply -f manifests/debate/
+```
+
+### 6.6 디렉토리 구조
+
+```
+manifests/
+├── langfuse/
+│   ├── values.yaml              # Helm chart override
+│   └── langfuse/                # Pulled Helm chart
+├── litellm/
+│   ├── configmap.yaml           # 모델 라우팅 + langfuse callback
+│   ├── secret.yaml              # Langfuse API keys
+│   ├── deployment.yaml          # LiteLLM proxy pod
+│   └── service.yaml             # NodePort 30400
+└── debate/
+    ├── secret.yaml              # Langfuse API keys
+    ├── deployment.yaml          # Debate service pod
+    └── service.yaml             # NodePort 30080
+
+services/
+└── debate/
+    ├── app/
+    │   ├── __init__.py
+    │   ├── main.py              # FastAPI 엔트리포인트
+    │   ├── debate.py            # 토론 오케스트레이션 + Langfuse 트레이싱
+    │   ├── models.py            # Pydantic 모델
+    │   └── config.py            # 환경변수 설정
+    ├── Dockerfile
+    └── requirements.txt
+```
+
+### 6.7 검증
+
+```bash
+# Langfuse
+curl http://localhost:30030/api/public/health
+
+# LiteLLM
+curl http://localhost:30400/health/readiness
+
+# Debate Service
+curl http://localhost:30080/health
+curl -X POST http://localhost:30080/debate \
+  -H "Content-Type: application/json" \
+  -d '{"topic":"AI가 예술 창작을 대체할 수 있는가","rounds":2}'
+
+# Langfuse UI에서 트레이스 확인 (http://localhost:30030)
+```
+
+### 6.8 주의사항
+
+- Mistral 모델은 system role 미지원 → system prompt를 첫 user message에 포함
+- Langfuse API 키는 UI에서 프로젝트 생성 후 발급 → Secret에 반영 필요
+- Langfuse SDK v3는 `langfuse.trace()` 대신 `start_as_current_span()` 사용
+- 로컬 Docker registry (localhost:5000) 통해 이미지 배포
+
+---
+
 ## 작업 지침
 
 ### Claude Code 활용 가이드
@@ -591,6 +743,9 @@ vllm:avg_generation_throughput_toks_per_s
 | 2.2 | API 응답 | /v1/models 200 OK | ⏳ |
 | 3.x | 프로파일링 | nsys/ncu 리포트 생성 | ⏳ |
 | 4.x | 모니터링 | Grafana 대시보드 메트릭 표시 | ⏳ |
+| 6.3 | Langfuse 배포 | /api/public/health 200 OK | ✅ |
+| 6.4 | LiteLLM 배포 | /health/readiness 200 OK, Langfuse 트레이스 기록 | ✅ |
+| 6.5 | Debate Service | /debate POST 응답 + Langfuse trace_id 반환 | ✅ |
 
 ---
 
@@ -647,3 +802,4 @@ vllm:avg_generation_throughput_toks_per_s
 | 2025-01-09 | 1.0 | 초기 계획 수립 |
 | 2025-01-10 | 1.1 | k3d → k3s 직접 설치로 변경, GPU 연동 완료 |
 | 2025-01-10 | 1.2 | 학습 노트 작성 규칙 추가 |
+| 2025-01-23 | 1.3 | Phase 6 추가: Langfuse + LiteLLM + Debate Service 구성 |
