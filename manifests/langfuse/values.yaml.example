@@ -1,0 +1,122 @@
+# Langfuse Helm Chart - Study Environment Configuration
+# ZooKeeper 없이 ClickHouse 단일 노드 구성
+#
+# 사용법: 이 파일을 values.yaml로 복사한 뒤 <CHANGE_ME> 값을 실제 값으로 교체
+# cp values.yaml.example values.yaml
+
+langfuse:
+  salt:
+    value: "<CHANGE_ME_RANDOM_STRING>"
+
+  features:
+    telemetryEnabled: false
+    signUpDisabled: false
+
+  nextauth:
+    url: http://localhost:30030
+    secret:
+      value: "<CHANGE_ME_NEXTAUTH_SECRET>"
+
+  encryptionKey:
+    value: "<CHANGE_ME_64_HEX_CHARS>"
+
+  web:
+    service:
+      type: NodePort
+      port: 3000
+      nodePort: 30030
+    pod:
+      additionalEnv:
+      - name: NODE_OPTIONS
+        value: "--max-old-space-size=768"
+    resources:
+      requests:
+        cpu: 200m
+        memory: 512Mi
+      limits:
+        cpu: 1000m
+        memory: 1Gi
+    livenessProbe:
+      initialDelaySeconds: 90
+      periodSeconds: 15
+      timeoutSeconds: 10
+      failureThreshold: 5
+    readinessProbe:
+      initialDelaySeconds: 60
+      periodSeconds: 10
+      timeoutSeconds: 10
+      failureThreshold: 5
+
+  worker:
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 768Mi
+
+# PostgreSQL (Bitnami subchart)
+postgresql:
+  deploy: true
+  auth:
+    username: langfuse
+    password: "<CHANGE_ME_PG_PASSWORD>"
+    database: postgres_langfuse
+  architecture: standalone
+  primary:
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+    persistence:
+      size: 5Gi
+
+# ClickHouse - 단일 노드 (ZooKeeper 비활성화)
+clickhouse:
+  deploy: true
+  shards: 1
+  replicaCount: 1
+  clusterEnabled: false
+  resourcesPreset: "none"
+  auth:
+    username: default
+    password: "<CHANGE_ME_CH_PASSWORD>"
+  resources:
+    requests:
+      cpu: 100m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+  persistence:
+    size: 5Gi
+  zookeeper:
+    enabled: false
+
+# Redis/Valkey
+redis:
+  deploy: true
+  auth:
+    password: "<CHANGE_ME_REDIS_PASSWORD>"
+  architecture: standalone
+  master:
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 200m
+        memory: 128Mi
+    persistence:
+      size: 1Gi
+
+# MinIO (S3-compatible blob storage)
+s3:
+  deploy: true
+  auth:
+    rootUser: minio
+    rootPassword: "<CHANGE_ME_MINIO_PASSWORD>"

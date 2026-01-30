@@ -37,6 +37,8 @@ logs/
 *credential*
 kubeconfig
 .kube/
+manifests/langfuse/values.yaml
+manifests/*/deployment.yaml
 
 # Model files (too large for git)
 *.bin
