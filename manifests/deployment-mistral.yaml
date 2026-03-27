@@ -14,13 +14,16 @@ spec:
     metadata:
       labels:
         app: vllm-mistral
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+        prometheus.io/path: "/metrics"
     spec:
       containers:
       - name: vllm
-        image: vllm/vllm-openai:latest
+        image: vllm/vllm-openai:v0.18.0-cu130
+        command: ["vllm", "serve", "TheBloke/Mistral-7B-Instruct-v0.2-AWQ"]
         args:
-        - "--model"
-        - "TheBloke/Mistral-7B-Instruct-v0.2-AWQ"
         - "--quantization"
         - "awq"
         - "--gpu-memory-utilization"
@@ -28,6 +31,7 @@ spec:
         - "--max-model-len"
         - "8192"
         - "--enforce-eager"
+        - "--enable-prefix-caching"
         resources:
           limits:
             nvidia.com/gpu: 1

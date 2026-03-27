@@ -1,0 +1,18 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: sglang-mistral
+  namespace: sglang
+  labels:
+    app: sglang-mistral
+spec:
+  selector:
+    matchLabels:
+      app: sglang-mistral
+  endpoints:
+  - port: http
+    interval: 15s
+    path: /metrics
+  namespaceSelector:
+    matchNames:
+    - sglang

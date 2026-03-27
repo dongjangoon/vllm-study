@@ -3,11 +3,14 @@ kind: Service
 metadata:
   name: vllm-mistral
   namespace: vllm
+  labels:
+    app: vllm-mistral
 spec:
   type: NodePort
   selector:
     app: vllm-mistral
   ports:
-  - port: 8000
+  - name: http
+    port: 8000
     targetPort: 8000
     nodePort: 30800
